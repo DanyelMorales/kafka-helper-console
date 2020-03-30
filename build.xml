@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<project name="kfk-batch-helper" basedir="." 
+    xmlns:if="ant:if" 
+    xmlns:unless="ant:unless" default="main">
+    <property name="ENV_DIR" location="${basedir}/environments"/>
+    <property name="PROPS_DIR" location="${ENV_DIR}/properties"/>
+    <property name="TEMPL_DIR" location="${ENV_DIR}/templates"/>
+    <property name="BUILD_DIR" location="${basedir}/bin"/>
+    <property name="ASSETS_DIR" location="${ENV_DIR}/assets"/>
+    <property name="CONFIGURE_SERVER_DIR" location="${TEMPL_DIR}/servers"/>
+    <property name="BANNER_FILE" location="${ASSETS_DIR}/banner.bat"/>
+    <property name="COMMON_FILE" location="${ASSETS_DIR}/common.bat"/>
+
+    <description> Tasks to create a kafka helper </description>
+
+    <target name="init" description="Trigger steps to generate bat files for kafka" depends="check-args, properties-file">
+        <echo message="Building bat files..."/>
+    </target>
+    <target name="check-args">
+        <property name="environment" value="dev" />
+        <echo message="Running for ${environment} environment" />
+    </target>
+    <target name="properties-file">
+        <property name="dictionary" value="${PROPS_DIR}/${environment}.properties"/>
+        <available file="${dictionary}" property="dictionary.present"/>
+        <property file="${dictionary}"/>
+    </target>
+    <target name="kfk-batch" if="dictionary.present">
+        <echo message="Building kafka bat files"/>
+        <copy todir="${BUILD_DIR}" overwrite="true" filtering="true">
+            <fileset dir="${TEMPL_DIR}" includes="**/*.bat"/>
+            <globmapper from="*.bat" to="*.bat"/>
+            <filterset filtersfile="${dictionary}" begintoken="${" endtoken="}"/>
+            <filterchain>
+                <concatfilter prepend="${BANNER_FILE}" />
+                <concatfilter prepend="${COMMON_FILE}" />
+            </filterchain>
+        </copy>
+    </target>
+    <target name="configure" if="dictionary.present" depends="check-args, properties-file">
+        <echo message="Configuring kafka and zookeeper servers ${dictionary}"/>
+        <copy todir="${zookeeper.conf}" overwrite="true" filtering="true">
+            <fileset dir="${CONFIGURE_SERVER_DIR}" includes="**/*.cfgtemplate"/>
+            <globmapper from="*.cfg.cfgtemplate" to="*.cfg"/>
+            <filterset filtersfile="${dictionary}" begintoken="${" endtoken="}"/>
+        </copy>
+        <copy todir="${kafka.conf}" overwrite="true" filtering="true">
+            <fileset dir="${CONFIGURE_SERVER_DIR}" includes="**/*.cfgtemplate"/>
+            <globmapper from="*.properties.cfgtemplate" to="*.properties"/>
+            <filterset filtersfile="${dictionary}" begintoken="${" endtoken="}"/>
+        </copy>
+    </target>
+
+    <target name="banner">
+        <!--  <loadfile property="MAGIC_BANNER" srcfile="${BANNER_FILE}"/>
+        <echo message="${MAGIC_BANNER}" />-->
+    </target>
+
+    <target name="main" depends="banner, init, kfk-batch"/>
+    <target name="install" depends="banner,  init, configure"/>
+</project>
